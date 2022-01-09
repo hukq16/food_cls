@@ -15,11 +15,12 @@ from dataset import Food_LT
 from model import resnet34
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
+from newmodel import ResNet152
 
 
 def main():
-    model = resnet34()
-    
+    # model = resnet34()
+    model = ResNet152()
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
         pass
