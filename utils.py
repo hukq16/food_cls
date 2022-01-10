@@ -46,7 +46,6 @@ def logger(info, file_path=cfg.log_path, flag=True, init=False):
         
     return
 
-    
 def accuracy(output, target, topk=(1,)):
     """ Computes the accuracy over the k top predictions for the specified values of k """
     with torch.no_grad():
@@ -56,6 +55,23 @@ def accuracy(output, target, topk=(1,)):
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].contiguous().view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
+
+def accuracy_mixup(output, input, lam, targets_a, targets_b, topk=(1,)):
+    """ Computes the accuracy over the k top predictions for the specified values of k """
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = input.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        # correct = pred.eq(target.view(1, -1).expand_as(pred))
+        correct = (lam * pred.eq(targets_a.view(1, -1) + + (1 - lam) * pred.eq(targets_b.view(1, -1))).expand_as(pred))
 
         res = []
         for k in topk:
@@ -84,15 +100,65 @@ def adjust_learning_rate(optimizer, epoch, cfg):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+def mixup_data(x, y, alpha=1.0):
+    """Returns mixed inputs, pairs of targets, and lambda"""
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size)
+    index = index.cuda(cfg.gpu)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1. - lam) * criterion(pred, y_b)
+        
+def cutmix_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1. - lam) * criterion(pred, y_b)
 
 def save_checkpoint(state, is_best, model_dir):
     ''' save ckeck point current and the best '''
-    filename = model_dir + '/ckpt/current.pth.tar'
+    filename = './ckpt/current.pth.tar'
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, model_dir + '/ckpt/model_best.pth.tar')
-     
-        
+        shutil.copyfile(filename,  './ckpt/model_best.pth.tar')
+
+def _rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+def cutmix_data(x, y, alpha=1.0):
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+    rand_index = torch.randperm(x.size()[0]).cuda(cfg.gpu)
+    y_a = y
+    y_b = y[rand_index]
+    bbx1, bby1, bbx2, bby2 = _rand_bbox(x.size(), lam)
+    x[:, :, bbx1:bbx2, bby1:bby2] = x[rand_index, :, bbx1:bbx2, bby1:bby2]
+    # adjust lambda to exactly match pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x.size()[-1] * x.size()[-2]))
+    return x, y_a, y_b, lam
+
 def train(train_loader, model, criterion, optimizer, epoch):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
@@ -114,10 +180,33 @@ def train(train_loader, model, criterion, optimizer, epoch):
         if torch.cuda.is_available():
             images = images.cuda(cfg.gpu, non_blocking=True)
             target = target.cuda(cfg.gpu, non_blocking=True)
-            output = model(images)
-            loss = criterion(output, target)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            mixup = False
+            cutmix_prob = 0
+            if mixup:
+                input, targets_a, targets_b, lam = mixup_data(images, target, 1.0)
+                output = model(input)
+                loss = mixup_criterion(criterion, output, targets_a, targets_b, lam)
+            elif cutmix_prob > 0:
+                r = np.random.rand(1)
+                if r < cutmix_prob:
+                    input, targets_a, targets_b, lam = cutmix_data(images, target, 1)
+                    output = model(input)
+                    loss = cutmix_criterion(criterion, output, targets_a, targets_b, lam)
+                else:
+                    output = model(images)
+                    loss = criterion(output, target)       
+            else:
+                output = model(images)
+                loss = criterion(output, target)
+            
+
+        
+        if mixup or r < cutmix_prob:
+            acc1, acc5 = accuracy_mixup(output=output, input=input, lam=lam, targets_a=targets_a, targets_b=targets_b, topk=(1, 5))
+        else:
+            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        
         
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
