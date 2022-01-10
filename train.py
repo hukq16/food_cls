@@ -20,8 +20,8 @@ from newmodel import efficientnet_b7
 
 
 def main():
-    # model = resnet34()
-    model = efficientnet_b7(cfg.num_classes)
+    model = ResNet152()
+    # model = efficientnet_b7(cfg.num_classes)
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
         pass
