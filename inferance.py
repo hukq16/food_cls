@@ -18,6 +18,7 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from dataset import Food_LT
 from model import resnet34
+from newmodel import efficientnet_b7
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
 
@@ -47,8 +48,8 @@ class LT_Dataset_TEST(Dataset):
 
 PATH = './ckpt/model_best.pth.tar'
 def main():
-    device = torch.device("cuda")
-    model = resnet34()
+    device = torch.device(cfg.gpu)
+    model = efficientnet_b7(1000)
     checkpoint = torch.load(PATH)
     model.load_state_dict(checkpoint['state_dict_model'])
     model.to(device)

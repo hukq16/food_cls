@@ -10,16 +10,18 @@ import torchvision
 import torchvision.datasets
 from torchvision import transforms
 from torch.utils.data import Dataset
-
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset import Food_LT
 from model import resnet34
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
+from newmodel import ResNet152
+from newmodel import efficientnet_b7
 
 
 def main():
-    model = resnet34()
-    
+    # model = resnet34()
+    model = efficientnet_b7(cfg.num_classes)
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
         pass
@@ -46,13 +48,13 @@ def main():
     optimizer = torch.optim.SGD([{"params": model.parameters()}], cfg.lr,
                                 momentum=cfg.momentum,
                                 weight_decay=cfg.weight_decay)
-    
+    scheduler_1 = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3,verbose=True)
     best_acc = 0
     for epoch in range(cfg.num_epochs):
         logger('--'*10 + f'epoch: {epoch}' + '--'*10)
         logger('Training start ...')
         
-        adjust_learning_rate(optimizer, epoch, cfg)
+        # adjust_learning_rate(optimizer, epoch, cfg)
         
         train(train_loader, model, criterion, optimizer, epoch)
         logger('Wait for validation ...')
@@ -61,7 +63,7 @@ def main():
         is_best = acc > best_acc
         best_acc = max(acc, best_acc)
         logger('* Best Prec@1: %.3f%%' % (best_acc))
-
+        scheduler_1.step(acc)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict_model': model.state_dict(),
