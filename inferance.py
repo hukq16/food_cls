@@ -18,7 +18,7 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from dataset import Food_LT
 from model import resnet34
-from newmodel import ResNet101
+from newmodel import ResNet152
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
 
@@ -46,10 +46,10 @@ class LT_Dataset_TEST(Dataset):
             sample = self.transform(sample)
         return sample, os.path.basename(path)
 
-PATH = '/mnt/disk1/hkq/food_cls/ckpt/model_best.pth.tar'
+PATH = './ckpt/model_best.pth.tar'
 def main():
     device = torch.device(cfg.gpu)
-    model = ResNet101()
+    model = ResNet152()
     checkpoint = torch.load(PATH)
     model.load_state_dict(checkpoint['state_dict_model'])
     model.to(device)
