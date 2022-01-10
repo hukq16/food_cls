@@ -113,7 +113,31 @@ class Food_LT(object):
         self.cls_num_list = train_dataset.cls_num_list
         self.val_num_list = eval_dataset.cls_num_list
 
+        dist = [0 for _ in range(101)]
+        with open(cfg.root+'/data/food/train.txt') as f:
+            for line in f:
+                dist[int(line.split()[1])] += 1
+        print("count_dist",dist)
+
+        train_count_imbalanced = list(dist) 
+        train_class_weights = 1 / torch.Tensor(train_count_imbalanced)
+        train_sample_weights = []
+        with open(cfg.root+'/data/food/train.txt') as fp:
+            for line in fp:
+                category_id = (int(line.split()[1]))
+                train_sample_weights.append(train_class_weights[category_id])
+        # print("train_sample_weights",train_sample_weights)
+        trainsampler_trick2 = torch.utils.data.sampler.WeightedRandomSampler(train_sample_weights, len(train_sample_weights))
+
         self.dist_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed else None
+
+        resample = False
+        if resample:
+            self.train_instance = torch.utils.data.DataLoader(
+                train_dataset,
+                batch_size=batch_size, shuffle=False,
+                num_workers=num_works, pin_memory=True, sampler=trainsampler_trick2)
+                
         self.train_instance = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=batch_size, shuffle=True,
