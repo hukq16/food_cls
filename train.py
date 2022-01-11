@@ -17,11 +17,12 @@ import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
 from newmodel import ResNet152
 from newmodel import efficientnet_b7
+from newmodel import se_resnext_152
 
 
 def main():
-    # model = resnet34()
-    model = efficientnet_b7(cfg.num_classes)
+    model = se_resnext_152()
+    # model = efficientnet_b7(cfg.num_classes)
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
         pass
@@ -48,7 +49,7 @@ def main():
     optimizer = torch.optim.SGD([{"params": model.parameters()}], cfg.lr,
                                 momentum=cfg.momentum,
                                 weight_decay=cfg.weight_decay)
-    scheduler_1 = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3,verbose=True)
+    scheduler_1 = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5,verbose=True)
     best_acc = 0
     for epoch in range(cfg.num_epochs):
         logger('--'*10 + f'epoch: {epoch}' + '--'*10)
