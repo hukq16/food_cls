@@ -88,11 +88,11 @@ def adjust_learning_rate(optimizer, epoch, cfg):
         lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(epoch / cfg.num_epochs * 3.1415926535))
     else:
         epoch = epoch + 1
-        if epoch <= 5:
+        if epoch <= 5 and cfg.use_vit == False:
             lr = cfg.lr * epoch / 5
-        elif epoch > 80:
+        elif epoch > 160:
             lr = cfg.lr * 0.01
-        elif epoch > 60:
+        elif epoch > 120:
             lr = cfg.lr * 0.1
         else:
             lr = cfg.lr
