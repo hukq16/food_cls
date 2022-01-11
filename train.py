@@ -13,16 +13,25 @@ from torch.utils.data import Dataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset import Food_LT
 from model import resnet34
-import config as cfg
-from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
 from newmodel import ResNet152
 from newmodel import efficientnet_b7
 from newmodel import se_resnext_152
-
+import config as cfg
+from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
+from focalLoss import create_focal_loss
+from WeightedSoftmaxLoss import create_weighted_loss
+from vit import vit_s
 
 def main():
-    model = se_resnext_152()
-    # model = efficientnet_b7(cfg.num_classes)
+    if cfg.use_vit:
+        model = vit_s()
+    elif cfg.use_efficient:
+        model = efficientnet_b7()
+    elif cfg.use_se:
+        model = se_resnext_152()
+    else:
+        model = ResNet152()
+    
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
         pass
@@ -45,17 +54,28 @@ def main():
     train_loader = dataset.train_instance
     val_loader = dataset.eval
     
-    criterion = nn.CrossEntropyLoss().cuda(cfg.gpu)
-    optimizer = torch.optim.SGD([{"params": model.parameters()}], cfg.lr,
-                                momentum=cfg.momentum,
-                                weight_decay=cfg.weight_decay)
-    scheduler_1 = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5,verbose=True)
+    if cfg.use_focal:
+        criterion = create_focal_loss().cuda(cfg.gpu)
+    elif cfg.use_weighted_ce:
+        criterion = create_weighted_loss().cuda(cfg.gpu)
+    else:
+        criterion = nn.CrossEntropyLoss().cuda(cfg.gpu)
+    if cfg.use_vit:
+        optimizer = torch.optim.Adam([{"params": model.parameters()}], lr = 3e-4)
+    else:
+        optimizer = torch.optim.SGD([{"params": model.parameters()}], cfg.lr,
+                                    momentum=cfg.momentum,
+                                    weight_decay=cfg.weight_decay)
+    
+    if cfg.use_se:
+        scheduler_1 = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3,verbose=True)
     best_acc = 0
     for epoch in range(cfg.num_epochs):
         logger('--'*10 + f'epoch: {epoch}' + '--'*10)
         logger('Training start ...')
         
-        # adjust_learning_rate(optimizer, epoch, cfg)
+        if not cfg.use_se:
+            adjust_learning_rate(optimizer, epoch, cfg)
         
         train(train_loader, model, criterion, optimizer, epoch)
         logger('Wait for validation ...')
@@ -64,7 +84,9 @@ def main():
         is_best = acc > best_acc
         best_acc = max(acc, best_acc)
         logger('* Best Prec@1: %.3f%%' % (best_acc))
-        scheduler_1.step(acc)
+        
+        if cfg.use_se:
+            scheduler_1.step(acc)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict_model': model.state_dict(),

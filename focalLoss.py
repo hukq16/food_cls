@@ -28,5 +28,5 @@ class FocalLoss(nn.Module):
         if self.size_average: return loss.mean()
         else: return loss.sum()
 
-def create_loss():
+def create_focal_loss():
     return FocalLoss(gamma = 2.0)

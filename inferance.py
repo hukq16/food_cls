@@ -18,8 +18,10 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from dataset import Food_LT
 from model import resnet34
+from newmodel import efficientnet_b7
 from newmodel import ResNet152
 from newmodel import se_resnext_152
+from vit import vit_s
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
 
@@ -50,7 +52,14 @@ class LT_Dataset_TEST(Dataset):
 PATH = './ckpt/model_best.pth.tar'
 def main():
     device = torch.device(cfg.gpu)
-    model = se_resnext_152(1000)
+    if cfg.use_vit:
+        model = vit_s()
+    elif cfg.use_efficient:
+        model = efficientnet_b7()
+    elif cfg.use_se:
+        model = se_resnext_152()
+    else:
+        model = ResNet152()
     checkpoint = torch.load(PATH)
     model.load_state_dict(checkpoint['state_dict_model'])
     model.to(device)

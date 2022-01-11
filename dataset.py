@@ -126,22 +126,22 @@ class Food_LT(object):
             for line in fp:
                 category_id = (int(line.split()[1]))
                 train_sample_weights.append(train_class_weights[category_id])
-        # print("train_sample_weights",train_sample_weights)
-        trainsampler_trick2 = torch.utils.data.sampler.WeightedRandomSampler(train_sample_weights, len(train_sample_weights))
+
+        weightedSampler = torch.utils.data.sampler.WeightedRandomSampler(train_sample_weights, len(train_sample_weights))
 
         self.dist_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed else None
 
-        resample = False
-        if resample:
+        if cfg.weighted_sample:
             self.train_instance = torch.utils.data.DataLoader(
                 train_dataset,
                 batch_size=batch_size, shuffle=False,
-                num_workers=num_works, pin_memory=True, sampler=trainsampler_trick2)
+                num_workers=num_works, pin_memory=True, sampler=weightedSampler)
                 
-        self.train_instance = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=batch_size, shuffle=True,
-            num_workers=num_works, pin_memory=True, sampler=self.dist_sampler)
+        else:
+            self.train_instance = torch.utils.data.DataLoader(
+                train_dataset,
+                batch_size=batch_size, shuffle=True,
+                num_workers=num_works, pin_memory=True, sampler=self.dist_sampler)
 
         self.eval = torch.utils.data.DataLoader(
             eval_dataset,
