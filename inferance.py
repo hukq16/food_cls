@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from dataset import Food_LT
 from model import resnet34
 from newmodel import efficientnet_b7
-from newmodel import ResNet152
+from resmodel import ResNet152
 from newmodel import se_resnext_152
 from vit import vit_s
 import config as cfg

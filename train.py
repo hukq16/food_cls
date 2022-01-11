@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset import Food_LT
 from model import resnet34
-from newmodel import ResNet152
+from resmodel import ResNet152
 from newmodel import efficientnet_b7
 from newmodel import se_resnext_152
 import config as cfg
