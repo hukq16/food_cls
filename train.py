@@ -15,10 +15,15 @@ from dataset import Food_LT
 from model import resnet34
 import config as cfg
 from utils import adjust_learning_rate, save_checkpoint, train, validate, logger
-
+from focalLoss import create_focal_loss
+from WeightedSoftmaxLoss import create_weighted_loss
+from vit import vit_s
 
 def main():
-    model = resnet34()
+    if cfg.use_vit:
+        model = vit_s()
+    else:
+        model = resnet34()
     
     if cfg.resume:
         ''' plz implement the resume code by ur self! '''
@@ -42,7 +47,12 @@ def main():
     train_loader = dataset.train_instance
     val_loader = dataset.eval
     
-    criterion = nn.CrossEntropyLoss().cuda(cfg.gpu)
+    if cfg.use_focal:
+        criterion = create_focal_loss().cuda(cfg.gpu)
+    elif cfg.use_weighted_ce:
+        criterion = create_weighted_loss().cuda(cfg.gpu)
+    else:
+        criterion = nn.CrossEntropyLoss().cuda(cfg.gpu)
     optimizer = torch.optim.SGD([{"params": model.parameters()}], cfg.lr,
                                 momentum=cfg.momentum,
                                 weight_decay=cfg.weight_decay)

@@ -2,7 +2,7 @@ import config as cfg
 import torch
 import torch.nn as nn
 
-def create_loss ():
+def create_weighted_loss():
     print('Loading Weighted Softmax Loss.')
     # Imagenet_LT class distribution
     dist = [0 for _ in range(101)]

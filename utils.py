@@ -181,15 +181,13 @@ def train(train_loader, model, criterion, optimizer, epoch):
             images = images.cuda(cfg.gpu, non_blocking=True)
             target = target.cuda(cfg.gpu, non_blocking=True)
 
-            mixup = False
-            cutmix_prob = 0
-            if mixup:
+            if cfg.mixup:
                 input, targets_a, targets_b, lam = mixup_data(images, target, 1.0)
                 output = model(input)
                 loss = mixup_criterion(criterion, output, targets_a, targets_b, lam)
-            elif cutmix_prob > 0:
+            elif cfg.cutmix_prob > 0:
                 r = np.random.rand(1)
-                if r < cutmix_prob:
+                if r < cfg.cutmix_prob:
                     input, targets_a, targets_b, lam = cutmix_data(images, target, 1)
                     output = model(input)
                     loss = cutmix_criterion(criterion, output, targets_a, targets_b, lam)
@@ -202,7 +200,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             
 
         
-        if mixup or r < cutmix_prob:
+        if cfg.mixup or r < cfg.cutmix_prob:
             acc1, acc5 = accuracy_mixup(output=output, input=input, lam=lam, targets_a=targets_a, targets_b=targets_b, topk=(1, 5))
         else:
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
